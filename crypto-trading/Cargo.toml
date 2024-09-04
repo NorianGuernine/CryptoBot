@@ -1,0 +1,15 @@
+[package]
+name = "crypto-trading"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hex = "0.4"
+sha2 = "0.10.8"
+hmac = "0.12.1"
+reqwest = { version = "0.12.7", features = ["json"] }
+tokio = { version = "1.39.3", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
