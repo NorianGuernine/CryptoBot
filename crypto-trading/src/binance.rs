@@ -55,7 +55,7 @@ mod binance {
             self.secret_key = reader[0].secret_key.clone();
         }
 
-        pub async fn get_account_info(&mut self) -> Result<(), reqwest::Error> {
+        pub async fn get_account_info(&mut self) -> Result<serde_json::Value, reqwest::Error> {
             self.calculate_timestamp_ms();
             self.generate_signature_request();
             let url = URL_ACCOUNT_INFO.to_string() 
@@ -64,7 +64,7 @@ mod binance {
  
             let client = reqwest::Client::new();
  
-            let res = client
+            let result_get = client
                 .get(&url)
                 .header("X-MBX-APIKEY",self.api_key.as_str())
                 .send()
@@ -74,7 +74,7 @@ mod binance {
                 .await
                 .unwrap();
 
-            Ok(())
+            Ok(result_get)
 
         }
 
@@ -109,7 +109,7 @@ mod tests {
         let mut test_binance = binance::Binance::new();
         let file_key_path = binance::PATH_KEY.to_owned() + "test_false_keys_file.json";
         test_binance.read_keys(file_key_path.as_str());
-        
+
         //value in file for api_key is ApiKeyValue and SecretKeyValue for secret_key
         assert_eq!(test_binance.get_api_key(), "ApiKeyValue");
         assert_eq!(test_binance.get_secret_key(), "SecretKeyValue");
@@ -134,12 +134,25 @@ mod tests {
         test_binance.read_keys(file_key_path.as_str());
     }
 
-    #[test]
-    fn test_get_request() {
+    #[tokio::test]
+    async fn test_get_request() {
         // call the function with the new file create
         let mut test_binance = binance::Binance::new();
         let file_key_path = binance::PATH_KEY.to_owned() + "test_api_key.json";
         test_binance.read_keys(file_key_path.as_str());
-        test_binance.get_account_info();
+        let values_from_binance = test_binance.get_account_info().await.unwrap();
+
+        let balances = values_from_binance["balances"].as_array().unwrap();
+        for i in 0..balances.len() {
+            let amount = balances[i]["free"]
+                .as_str()
+                .unwrap()
+                .parse::<f32>()
+                .unwrap();
+            if amount > 0.0 {
+                println!("{}: {}", balances[i]["asset"], amount);
+            }
+        }
+        println!("test request");
     }
 } 
