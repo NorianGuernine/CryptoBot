@@ -96,63 +96,84 @@ mod binance {
 
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
+    #[cfg(test)]
+    mod tests {
 
-    use super::*;
+        use super::*;
 
-    #[test]
-    fn test_read_keys() {
-        // call the function with the new file create
-        let mut test_binance = binance::Binance::new();
-        let file_key_path = binance::PATH_KEY.to_owned() + "test_false_keys_file.json";
-        test_binance.read_keys(file_key_path.as_str());
+        #[test]
+        fn test_read_keys() {
+            // call the function with the new file create
+            let mut test_binance = Binance::new();
+            let file_key_path = PATH_KEY.to_owned() + "test_false_keys_file.json";
+            test_binance.read_keys(file_key_path.as_str());
 
-        //value in file for api_key is ApiKeyValue and SecretKeyValue for secret_key
-        assert_eq!(test_binance.get_api_key(), "ApiKeyValue");
-        assert_eq!(test_binance.get_secret_key(), "SecretKeyValue");
-    
-    }
+            //value in file for api_key is ApiKeyValue and SecretKeyValue for secret_key
+            assert_eq!(test_binance.get_api_key(), "ApiKeyValue");
+            assert_eq!(test_binance.get_secret_key(), "SecretKeyValue");
+        
+        }
 
-    #[test]
-    #[should_panic(expected = "Unable to open file")]
-    fn test_read_keys_no_file_found() {
-        // call the function with the new file create
-        let mut test_binance = binance::Binance::new();
-        let file_key_path = binance::PATH_KEY.to_owned() + "test_false_key_file.json";
-        test_binance.read_keys(file_key_path.as_str());
-    }
-    
-    #[test]
-    #[should_panic(expected = "error while reading or parsing")]
-    fn test_read_keys_wrong_format() {
-        // call the function with the new file create
-        let mut test_binance = binance::Binance::new();
-        let file_key_path = binance::PATH_KEY.to_owned() + "file_wrong_format.json";
-        test_binance.read_keys(file_key_path.as_str());
-    }
+        #[test]
+        #[should_panic(expected = "Unable to open file")]
+        fn test_read_keys_no_file_found() {
+            // call the function with the new file create
+            let mut test_binance = Binance::new();
+            let file_key_path = PATH_KEY.to_owned() + "test_false_key_file.json";
+            test_binance.read_keys(file_key_path.as_str());
+        }
+        
+        #[test]
+        #[should_panic(expected = "error while reading or parsing")]
+        fn test_read_keys_wrong_format() {
+            // call the function with the new file create
+            let mut test_binance = Binance::new();
+            let file_key_path = PATH_KEY.to_owned() + "file_wrong_format.json";
+            test_binance.read_keys(file_key_path.as_str());
+        }
 
-    #[tokio::test]
-    async fn test_get_request() {
-        // call the function with the new file create
-        let mut test_binance = binance::Binance::new();
-        let file_key_path = binance::PATH_KEY.to_owned() + "test_api_key.json";
-        test_binance.read_keys(file_key_path.as_str());
-        let values_from_binance = test_binance.get_account_info().await.unwrap();
 
-        let balances = values_from_binance["balances"].as_array().unwrap();
-        for i in 0..balances.len() {
-            let amount = balances[i]["free"]
+        #[test]
+        fn test_signature() {
+            // call the function with the new file create
+            let mut test_binance = Binance::new();
+            let file_key_path = PATH_KEY.to_owned() + "test_false_keys_file.json";
+            test_binance.read_keys(file_key_path.as_str());
+            test_binance.timestamp_ms = 123456789;
+
+            test_binance.generate_signature_request();
+
+            assert_eq!(test_binance.signature_hex,
+                "24764b73bfbb3a6b90ea296dbfe8a1c99ee5b922a6ba55adb64e995c75437cc0");
+        }
+
+        #[tokio::test]
+        async fn test_get_request() {
+            // call the function with the new file create
+            let mut test_binance = Binance::new();
+            let file_key_path = PATH_KEY.to_owned() + "test_api_key.json";
+            test_binance.read_keys(file_key_path.as_str());
+            let values_from_binance = test_binance.get_account_info().await.unwrap();
+
+            let balances = values_from_binance["balances"].as_array().unwrap();
+
+            let value_eth = balances[0]["free"]
                 .as_str()
                 .unwrap()
                 .parse::<f32>()
                 .unwrap();
-            if amount > 0.0 {
-                println!("{}: {}", balances[i]["asset"], amount);
-            }
+
+            let value_ltc = balances[2]["free"]
+                .as_str()
+                .unwrap()
+                .parse::<f32>()
+                .unwrap();
+
+            assert_eq!(value_eth, 1.0);
+            assert_eq!(value_ltc, 7.0);
+
         }
-        println!("test request");
     }
-} 
+
+}
