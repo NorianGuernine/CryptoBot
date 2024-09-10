@@ -8,8 +8,9 @@ mod binance {
     use sha2::Sha256;
     use hmac::{Hmac, Mac};
     use reqwest;
+    use std::time::Duration;
 
-    pub const PATH_KEY: &str = "keys/";
+    const PATH_KEY: &str = "keys/";
     const URL_ACCOUNT_INFO: &str = "https://testnet.binance.vision/api/v3/account?";
     
     type HmacSha256 = Hmac<Sha256>;
@@ -61,18 +62,19 @@ mod binance {
             let url = URL_ACCOUNT_INFO.to_string() 
                 + &String::from("timestamp=") + &self.timestamp_ms.to_string()
                 + &String::from("&signature=") + &self.signature_hex;
- 
+
+            let timeout_duration = Duration::from_secs(10);
             let client = reqwest::Client::new();
  
             let result_get = client
                 .get(&url)
                 .header("X-MBX-APIKEY",self.api_key.as_str())
+                .timeout(timeout_duration)
                 .send()
-                .await
-                .unwrap()
+                .await?
+                .error_for_status()?
                 .json::<serde_json::Value>()
-                .await
-                .unwrap();
+                .await?;
 
             Ok(result_get)
 
@@ -101,6 +103,7 @@ mod binance {
     mod tests {
 
         use super::*;
+        const SIGNATURE_FROM_TEST: &str = "24764b73bfbb3a6b90ea296dbfe8a1c99ee5b922a6ba55adb64e995c75437cc0";
 
         #[test]
         fn test_read_keys() {
@@ -144,16 +147,17 @@ mod binance {
 
             test_binance.generate_signature_request();
 
-            assert_eq!(test_binance.signature_hex,
-                "24764b73bfbb3a6b90ea296dbfe8a1c99ee5b922a6ba55adb64e995c75437cc0");
+            assert_eq!(test_binance.signature_hex, SIGNATURE_FROM_TEST);
         }
 
         #[tokio::test]
         async fn test_get_request() {
             // call the function with the new file create
             let mut test_binance = Binance::new();
+
             let file_key_path = PATH_KEY.to_owned() + "test_api_key.json";
             test_binance.read_keys(file_key_path.as_str());
+
             let values_from_binance = test_binance.get_account_info().await.unwrap();
 
             let balances = values_from_binance["balances"].as_array().unwrap();
@@ -172,8 +176,28 @@ mod binance {
 
             assert_eq!(value_eth, 1.0);
             assert_eq!(value_ltc, 7.0);
+        }
+
+        #[tokio::test]
+        async fn test_get_request_unauthorized() {
+            // call the function with the new file create
+            let mut test_binance = Binance::new();
+
+            test_binance.api_key = "ApiKeyValue".to_string();
+            test_binance.secret_key = "SecretKeyValue".to_string();
+
+            match test_binance.get_account_info().await {
+                Ok(_) => {
+                    assert!(false);
+                },
+                Err(err) => {
+                    assert_eq!(err.status(),
+                        Some(reqwest::StatusCode::UNAUTHORIZED))
+                },
+            }
 
         }
+
     }
 
 }
