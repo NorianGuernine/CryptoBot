@@ -1,6 +1,17 @@
+#[cfg(test)]
+mod url {
+	pub const ACCOUNT_INFO: &str = "https://testnet.binance.vision/api/v3/account?";
+    pub const PRICE_CRYPTO: &str = "https://testnet.binance.vision/api/v3/ticker/price?";
+}
 
+#[cfg(not(test))]  
+mod url {
+    pub const ACCOUNT_INFO: &str = "https://testnet.binance.vision/api/v3/account?";
+    pub const PRICE_CRYPTO: &str = "https://testnet.binance.vision/api/v3/ticker/price?";
+}
+    
 mod binance {
-
+    
     use std::fs::File;
     use std::path::Path;
     use serde::Deserialize;
@@ -9,10 +20,11 @@ mod binance {
     use hmac::{Hmac, Mac};
     use reqwest;
     use std::time::Duration;
+    use crate::binance::url;
 
     const PATH_KEY: &str = "keys/";
-    const URL_ACCOUNT_INFO: &str = "https://testnet.binance.vision/api/v3/account?";
-    
+    const TIMEOUT_DELAY: u64 = 10;
+  
     type HmacSha256 = Hmac<Sha256>;
 
     #[derive(Deserialize, Debug)]
@@ -59,11 +71,28 @@ mod binance {
         pub async fn get_account_info(&mut self) -> Result<serde_json::Value, reqwest::Error> {
             self.calculate_timestamp_ms();
             self.generate_signature_request();
-            let url = URL_ACCOUNT_INFO.to_string() 
+            let url = url::ACCOUNT_INFO.to_string() 
                 + &String::from("timestamp=") + &self.timestamp_ms.to_string()
                 + &String::from("&signature=") + &self.signature_hex;
 
-            let timeout_duration = Duration::from_secs(10);
+            let result_get = self.send_request(url).await?;
+
+            Ok(result_get)
+
+        }
+        
+        pub async fn get_price_crypto(&mut self, symbol :&str) -> Result<serde_json::Value, reqwest::Error> {
+            let url = url::PRICE_CRYPTO.to_string() 
+            	+ &String::from("symbol=") + symbol;
+			
+			let result_get = self.send_request(url).await?;
+                
+            Ok(result_get)
+
+        }
+        
+        async fn send_request(&mut self, url :String) -> Result<serde_json::Value, reqwest::Error> {
+            let timeout_duration = Duration::from_secs(TIMEOUT_DELAY);
             let client = reqwest::Client::new();
  
             let result_get = client
@@ -75,9 +104,8 @@ mod binance {
                 .error_for_status()?
                 .json::<serde_json::Value>()
                 .await?;
-
+                
             Ok(result_get)
-
         }
 
         fn calculate_timestamp_ms(&mut self)  { 
@@ -196,6 +224,28 @@ mod binance {
                 },
             }
 
+        }
+        
+        #[tokio::test]
+        async fn test_get_price() {
+            let mut test_binance = Binance::new();
+
+            let file_key_path = PATH_KEY.to_owned() + "test_api_key.json";
+            test_binance.read_keys(file_key_path.as_str());
+
+            let price_from_binance = test_binance.get_price_crypto("BTCUSDC").await.unwrap();
+            
+            let mut price = 0;
+            let price = &price_from_binance["price"];
+            
+            println!("value {} \n \n \n", price);
+            
+            let price_value: f64 = price.as_str()
+                						.unwrap()
+                						.parse::<f64>()
+                						.unwrap();
+            
+            assert!(price_value > 10000.0);
         }
 
     }
