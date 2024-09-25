@@ -10,7 +10,7 @@ mod url {
     pub const PRICE_CRYPTO: &str = "https://testnet.binance.vision/api/v3/ticker/price?";
 }
     
-mod binance {
+pub mod binance {
     
     use std::fs::File;
     use std::path::Path;
@@ -235,11 +235,8 @@ mod binance {
 
             let price_from_binance = test_binance.get_price_crypto("BTCUSDC").await.unwrap();
             
-            let mut price = 0;
             let price = &price_from_binance["price"];
-            
-            println!("value {} \n \n \n", price);
-            
+                        
             let price_value: f64 = price.as_str()
                 						.unwrap()
                 						.parse::<f64>()
